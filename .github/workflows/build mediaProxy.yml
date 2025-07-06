@@ -54,6 +54,7 @@ jobs:
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-windows-amd64.exe
           GOOS=freebsd GOARCH=386 CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-freebsd-386
           GOOS=freebsd GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-freebsd-amd64
+          GOOS=android GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-android-amd64
           echo "FILESNAME=$PWD" >> $GITHUB_ENV
   
       - name: Bump Version and Push Tag
