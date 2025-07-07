@@ -22,56 +22,91 @@ jobs:
     name: Build
     runs-on: ${{ matrix.platform }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
 
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Install UPX
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y upx-ucl  # 使用更稳定的Ubuntu专用包[1](@ref)
+          upx --version  # 验证安装
 
       - uses: benjlevesque/short-sha@v2.2
         id: short-sha
           
       - name: SSH Connection to Actions
         uses: P3TERX/ssh2actions@v1.0.0
-        if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh  != 'false') || contains(github.event.action, 'ssh')
+        if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh != 'false') || contains(github.event.action, 'ssh')
           
-      - name: Build Go
+      - name: Build Go with UPX Compression
         run: |
           set +e
-          GOOS=linux GOARCH=386 CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-linux-386
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-linux-amd64
-          GOOS=linux GOARCH=arm CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-linux-arm
-          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-linux-arm64
-          GOOS=linux GOARCH=mips CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-linux-mips
-          GOOS=linux GOARCH=mips64 CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-linux-mips64
-          GOOS=linux GOARCH=mipsle CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-linux-mipsle
-          GOOS=linux GOARCH=mips64le CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-linux-mips64le
-          GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-darwin-amd64
-          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-darwin-arm64
-          GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-windows-386.exe
-          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-windows-amd64.exe
-          GOOS=freebsd GOARCH=386 CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-freebsd-386
-          GOOS=freebsd GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-freebsd-amd64
-          GOOS=android GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-android-arm64
-          GOOS=android GOARCH=arm CGO_ENABLED=0 go build -ldflags "-s -w" -tags netgo -installsuffix netgo -o mediaProxy-android-arm
+          # 定义目标平台数组
+          platforms=(
+            "linux/386" "linux/amd64" "linux/arm" "linux/arm64"
+            "linux/mips" "linux/mips64" "linux/mipsle" "linux/mips64le"
+            "darwin/amd64" "darwin/arm64"
+            "windows/386:.exe" "windows/amd64:.exe"
+            "freebsd/386" "freebsd/amd64"
+            "android/arm64" "android/arm"
+          )
+
+          # 遍历所有平台进行编译和压缩
+          for platform in "${platforms[@]}"; do
+            GOOS=${platform%/*}
+            GOARCH=${platform#*/}
+            EXTENSION=""
+            
+            # 处理带扩展名的平台（如Windows）
+            if [[ "$GOARCH" == *":"* ]]; then
+              EXTENSION=${GOARCH#*:}
+              GOARCH=${GOARCH%:*}
+            fi
+
+            OUTPUT="mediaProxy-${GOOS}-${GOARCH}${EXTENSION}"
+            
+            echo "▶ Building $OUTPUT"
+            CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH \
+              go build -ldflags="-s -w -X main.Version=${{ github.sha }}" \
+              -tags netgo -installsuffix netgo -o "$OUTPUT"
+            
+            echo "⚡ Compressing $OUTPUT with UPX"
+            upx --best --lzma "$OUTPUT" -o "${OUTPUT%.*}-compressed${EXTENSION}"  # 保留原文件[3](@ref)
+          done
+
           echo "FILESNAME=$PWD" >> $GITHUB_ENV
   
       - name: Bump Version and Push Tag
         id: bump
-        uses: anothrNick/github-tag-action@v1 # Don't use @master or @v1 unless you're happy to test the latest version
+        uses: anothrNick/github-tag-action@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # if you don't want to set write permissions use a PAT token
-          WITH_V: false
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Go to Release
+      - name: Upload Compressed Binaries to Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.bump.outputs.new_tag }}
-          files: ${{ env.FILESNAME }}/mediaProxy-*
+          files: |
+            *-compressed*
+          draft: false
+          prerelease: false
+          body: |
+            ### UPX压缩效果报告
+            - 压缩算法：LZMA (--best模式)[1](@ref)
+            - 预期体积缩减：50%-70%[3,5](@ref)
+            - 启动延迟：增加约10-100ms解压时间[3](@ref)
+
+      - name: Cleanup Old Artifacts
+        run: |
+          # 删除未压缩的原始文件（保留压缩版）
+          rm -f mediaProxy-*[!.][!c][!o][!m][!p][!r][!e][!s][!s][!e][!d]*
 
       - name: Delete Workflow Runs
         uses: Mattraks/delete-workflow-runs@v2
