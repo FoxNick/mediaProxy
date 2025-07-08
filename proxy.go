@@ -878,26 +878,39 @@ func checkFileExists(path string) error {
     return err
 }
 
+// 优先级：命令行参数 > 嵌入的默认配置
+func getConfigPath() string {
+    // 1. 检查命令行参数（如 -config=path.json）
+    configPath := flag.String("config", "", "配置文件路径和名称")
+    flag.Parse()
+    if *configPath != "" {
+        return *configPath
+    }
+    return ""
+}
+//go:embed config.json // 嵌入同目录下的默认配置文件
+var config embed.FS
+
+func loadConfig() ([]byte, error) {
+    path := getConfigPath()
+    if path != "" { // 存在外部配置
+        return os.ReadFile(path) // 读取外部文件
+    }
+    return config.ReadFile("config.json") // 读取嵌入配置
+}
+
 func main() {
-	configPath := flag.String("config", "config.json", "文件路径和名称")
-	// 打开文件
-	var config Config
-	file, err := os.Open(*configPath)
+	var cfg Config
+	bytes, err := loadConfig()
+        // 读取文件内容
 	if err != nil {
-		logrus.Errorf("无法打开配置文件: %s", err)
+		logrus.Errorf("无法读取配置文件: %s", err)	
 	} else {
-		bytes, err := io.ReadAll(file)
-		// 读取文件内容
-		if err != nil {
-			logrus.Errorf("无法读取配置文件: %s", err)	
-		} else {
-			// 解析 JSON 文件内容
-			if err := json.Unmarshal(bytes, &config); err != nil {
-				logrus.Errorf("无法解析配置文件: %s", err)
-			}
+		// 解析 JSON 文件内容
+	        if err := json.Unmarshal(bytes, &cfg); err != nil {
+		     logrus.Errorf("无法解析配置文件: %s", err)
 		}
 	}
-	defer file.Close()
 	
 	// 设置日志级别
 	if config.Debug != nil && *config.Debug {
@@ -928,7 +941,7 @@ func main() {
 		}
 	}
 	// 设置DNS
-	dnsResolver := "1.1.1.1:53"
+	dnsResolver := "223.5.5.5"
 	if config.DNS != nil {
 		dnsResolver = *config.DNS
 	}
