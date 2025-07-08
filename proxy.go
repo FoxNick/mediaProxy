@@ -37,7 +37,7 @@ import (
 //go:embed static/index.html
 var indexHTML embed.FS
 
-var workPool = false
+var workPool *bool
 var proxyTimeout = int64(10)
 var mediaCache = cache.New(4*time.Hour, 10*time.Minute)
 
