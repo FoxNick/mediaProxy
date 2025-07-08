@@ -27,8 +27,7 @@ import (
 	// 本地包
 	"MediaProxy/base"
 
-	// 第三方库
-	"github.com/bzsome/chaoGo/workpool"
+	// 第三方库	
 	"github.com/go-resty/resty/v2"
 	"github.com/patrickmn/go-cache"
 	"github.com/sirupsen/logrus"
