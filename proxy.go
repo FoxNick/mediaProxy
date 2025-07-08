@@ -928,7 +928,7 @@ func main() {
 		}
 	}
 	// 设置DNS
-	dnsResolver := "1.1.1.1"
+	dnsResolver := "1.1.1.1:53"
 	if config.DNS != nil {
 		dnsResolver = *config.DNS
 	}
