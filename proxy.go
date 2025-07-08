@@ -2,7 +2,6 @@ package main
 
 import (
 	// 标准库
-	//"crypto/tls"
 	"bufio"
 	"bytes"
 	"embed"
