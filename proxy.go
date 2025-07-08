@@ -107,7 +107,7 @@ func ConcurrentDownload(p *ProxyDownloadStruct, downloadUrl string, rangeStart i
 		numSplits = int64(numTasks)
 	}
 
-	logrus.Debugf("正在处理: %+v, rangeStart: %+v, rangeEnd: %+v, contentLength :%+v, splitSize: %+v, numSplits: %+v, numTasks: %+v", downloadUrl, rangeStart, rangeEnd, totalLength, splitSize, numSplits, numTasks)
+	slog.Debug(fmt.Sprintf("正在处理: %+v, rangeStart: %+v, rangeEnd: %+v, contentLength :%+v, splitSize: %+v, numSplits: %+v, numTasks: %+v", downloadUrl, rangeStart, rangeEnd, totalLength, splitSize, numSplits, numTasks))
 
 	if *workPool {
 		var wp *workpool.WorkPool
@@ -147,7 +147,7 @@ func ConcurrentDownload(p *ProxyDownloadStruct, downloadUrl string, rangeStart i
 		if len(buffer) == 0 {
 			p.ProxyStop()
 			emitter.Close()
-			logrus.Debugf("ProxyRead执行失败")
+			slog.Debug("ProxyRead执行失败")
 			buffer = nil
 			return
 		}
@@ -157,7 +157,7 @@ func ConcurrentDownload(p *ProxyDownloadStruct, downloadUrl string, rangeStart i
 		if err != nil {
 			p.ProxyStop()
 			emitter.Close()
-			logrus.Errorf("emitter写入失败, 错误: %+v", err)
+			slog.Error(fmt.Sprintf("emitter写入失败, 错误: %+v", err))
 			buffer = nil
 			return
 		}
@@ -165,7 +165,7 @@ func ConcurrentDownload(p *ProxyDownloadStruct, downloadUrl string, rangeStart i
 		if p.CurrentOffset >= rangeEnd {
 			p.ProxyStop()
 			emitter.Close()
-			logrus.Debugf("所有服务已经完成大小: %+v", totalLength)
+			slog.Debug(fmt.Sprintf("所有服务已经完成大小: %+v", totalLength))
 			buffer = nil
 			return
 		}
@@ -186,7 +186,7 @@ func (p *ProxyDownloadStruct) ProxyRead() []byte {
 	case currentChunk = <-p.ReadyChunkQueue:
 		break
 	case <-time.After(time.Duration(p.ProxyTimeout) * time.Second):
-		logrus.Debugf("执行 ProxyRead 超时")
+		slog.Debug("执行 ProxyRead 超时")
 		p.ProxyStop()
 		return nil
 	}
@@ -223,7 +223,7 @@ func (p *ProxyDownloadStruct) ProxyStop() {
 }
 
 func (p *ProxyDownloadStruct) ProxyWorker(req *http.Request) {
-	logrus.Debugf("当前活跃的协程数量: %d", runtime.NumGoroutine()-p.OriginThreadNum)
+	slog.Debug(fmt.Sprintf("当前活跃的协程数量: %d", runtime.NumGoroutine()-p.OriginThreadNum))
 	for {
 		if !p.ProxyRunning {
 			break
@@ -259,10 +259,10 @@ func (p *ProxyDownloadStruct) ProxyWorker(req *http.Request) {
 				remainingSize := p.GetRemainingSize(p.ChunkSize)
 				maxBufferSize := p.ChunkSize * p.MaxBufferedChunk
 				if remainingSize >= maxBufferSize {
-					logrus.Debugf("未读取数据: %d >= 缓冲区: %d ，先休息一下，避免内存溢出", remainingSize, maxBufferSize)
+					slog.Debug(fmt.Sprintf("未读取数据: %d >= 缓冲区: %d ，先休息一下，避免内存溢出", remainingSize, maxBufferSize))
 					time.Sleep(1 * time.Second)
 				} else {
-					// logrus.Debugf("未读取数据: %d < 缓冲区: %d , 下载继续", remainingSize, maxBufferSize)
+					// slog.Debug("未读取数据: %d < 缓冲区: %d , 下载继续", remainingSize, maxBufferSize)
 					break
 				}
 			}
@@ -299,13 +299,13 @@ func (p *ProxyDownloadStruct) ProxyWorker(req *http.Request) {
 						Get(p.DownloadUrl)
 
 					if err != nil {
-						logrus.Errorf("处理 %+v 链接 range=%d-%d 部分失败: %+v", p.DownloadUrl, chunk.startOffset, chunk.endOffset, err)
+						slog.Error(fmt.Sprintf("处理 %+v 链接 range=%d-%d 部分失败: %+v", p.DownloadUrl, chunk.startOffset, chunk.endOffset, err))
 						time.Sleep(1 * time.Second)
 						resp = nil
 						continue
 					}
 					if !strings.HasPrefix(resp.Status(), "20") {
-						logrus.Debugf("处理 %+v 链接 range=%d-%d 部分失败, statusCode: %+v: %s", p.DownloadUrl, chunk.startOffset, chunk.endOffset, resp.StatusCode(), resp.String())
+						slog.Debug(fmt.Sprintf("处理 %+v 链接 range=%d-%d 部分失败, statusCode: %+v: %s", p.DownloadUrl, chunk.startOffset, chunk.endOffset, resp.StatusCode(), resp.String()))
 						resp = nil
 						p.ProxyStop()
 						return
@@ -342,7 +342,7 @@ func handleMethod(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
 		// 处理 GET 请求
-		logrus.Info("正在 GET 请求")
+		slog.Info("正在 GET 请求")
 		// 检查查询参数是否为空
 		if req.URL.RawQuery == "" {
 			// 获取嵌入的 index.html 文件
@@ -362,7 +362,7 @@ func handleMethod(w http.ResponseWriter, req *http.Request) {
 		}
 	default:
 		// 处理其他方法的请求
-		logrus.Infof("正在处理 %v 请求", req.Method)
+		slog.Info(fmt.Sprintf("正在处理 %v 请求", req.Method))
 		handleOtherMethod(w, req)
 	}
 }
@@ -455,7 +455,7 @@ func handleGetMethod(w http.ResponseWriter, req *http.Request) {
 		statusCode = 200
 	}
 
-	logrus.Debugf("请求头: %+v", newHeader)
+	slog.Debug(fmt.Sprintf("请求头: %+v", newHeader))
 	headersKey := url + "#Headers"
 	var responseHeaders interface{}
 	var connection = "keep-alive"
@@ -548,7 +548,7 @@ func handleGetMethod(w http.ResponseWriter, req *http.Request) {
 		acceptRange := responseHeaders.(http.Header).Get("Accept-Ranges")
 		if contentRange == "" && acceptRange == "" {
 			// 不支持断点续传
-			logrus.Debug("不支持断点续传")
+			slog.Debug("不支持断点续传")
 			buf := make([]byte, 1024*64)
 			for {
 				n, err := resp.RawBody().Read(buf)
@@ -562,7 +562,7 @@ func handleGetMethod(w http.ResponseWriter, req *http.Request) {
 				}
 				if err != nil {
 					if err != io.EOF {
-						logrus.Errorf("读取 Response Body 错误: %v", err)
+						slog。Error(fmt.Sprintf("读取 Response Body 错误: %v", err))
 					}
 					break
 				}
@@ -577,11 +577,11 @@ func handleGetMethod(w http.ResponseWriter, req *http.Request) {
 			}()
 		} else {
 			// 支持断点续传
-			logrus.Debug("支持断点续传")
+			slog.Debug("支持断点续传")
 			mediaCache.Set(headersKey, responseHeaders, 14400*time.Second)
 
 			if resp != nil && resp.RawBody() != nil {
-				logrus.Debugf("resp.RawBody 已关闭")
+				slog.Debug("resp.RawBody 已关闭")
 				resp.RawBody().Close()
 			}
 		}
@@ -591,7 +591,7 @@ func handleGetMethod(w http.ResponseWriter, req *http.Request) {
 	contentRange := responseHeaders.(http.Header).Get("Content-Range")
 	if contentRange == "" && acceptRange == "" {
 		// 不支持断点续传
-		logrus.Debug("不支持断点续传-从缓存获取Headers")
+		slog.Debug("不支持断点续传-从缓存获取Headers")
 		for key, values := range responseHeaders.(http.Header) {
 			if strings.EqualFold(strings.ToLower(key), "connection") || strings.EqualFold(strings.ToLower(key), "proxy-connection") {
 				continue
@@ -602,7 +602,7 @@ func handleGetMethod(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(statusCode)
 	} else {
 		// 支持断点续传
-		logrus.Debug("支持断点续传-从缓存获取Headers")
+		slog.Debug("支持断点续传-从缓存获取Headers")
 		responseHeaders.(http.Header).Del("Content-Range")
 		responseHeaders.(http.Header).Set("Accept-Ranges", "bytes")
 
@@ -884,7 +884,7 @@ func main() {
 		slog.Info("已开启Debug模式")
 	}
 	
-	logrus.Infof("服务器运行在 %s 端口.", *port)
+	slog.Info(fmt.Sprintf("服务器运行在 %s 端口.", *port))
 	
 	// 设置 DNS 解析器 IP
 	dnsResolver = *dns
