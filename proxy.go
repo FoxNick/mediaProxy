@@ -562,7 +562,7 @@ func handleGetMethod(w http.ResponseWriter, req *http.Request) {
 				}
 				if err != nil {
 					if err != io.EOF {
-						slog。Error(fmt.Sprintf("读取 Response Body 错误: %v", err))
+						slog.Error(fmt.Sprintf("读取 Response Body 错误: %v", err))
 					}
 					break
 				}
@@ -571,7 +571,7 @@ func handleGetMethod(w http.ResponseWriter, req *http.Request) {
 
 			defer func() {
 				if resp != nil && resp.RawBody() != nil {
-					logrus.Debugf("resp.RawBody 已关闭")
+					slog.Debug("resp.RawBody 已关闭")
 					resp.RawBody().Close()
 				}
 			}()
