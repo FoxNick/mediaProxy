@@ -2,7 +2,7 @@ package main
 
 import (
 	// 标准库
-	"crypto/tls"
+	//"crypto/tls"
 	"bufio"
 	"bytes"
 	"embed"
@@ -42,16 +42,10 @@ var workPool = false
 var proxyTimeout = int64(10)
 var mediaCache = cache.New(4*time.Hour, 10*time.Minute)
 
-type SSLConfig struct {
-    Cert *string `json:"cert"`
-    Key  *string `json:"key"`
-}
-
 type Config struct {
 	WorkPool *bool           `json:"workPool"`
 	Debug    *bool           `json:"debug"`
 	Port     json.RawMessage `json:"port"`
-	SSL      *SSLConfig      `json:"ssl"`
 	DNS      *string         `json:"dns"`
 }
 
@@ -932,35 +926,10 @@ func main() {
 	base.DnsResolverIP = dnsResolver
 	base.InitClient()
 
-	// 设置http(s)服务器
-	var HTTPService = true
-	if config.SSL == nil || config.SSL.Key == nil || config.SSL.Cert == nil {
-		logrus.Error("SSL证书不完整，启动HTTP服务")
-	} else {
-		keyErr := checkFileExists(*config.SSL.Key)
-		certErr := checkFileExists(*config.SSL.Cert)
-		if certErr != nil || keyErr != nil {
-			logrus.Error("SSL证书不完整，启动HTTP服务")
-		} else {
-			HTTPService = false
-		}
+	server := http.Server{
+		Addr:    ":" + port,
+		Handler: http.HandlerFunc(handleMethod),
 	}
-	if HTTPService {
-		server := http.Server{
-			Addr:    ":" + port,
-			Handler: http.HandlerFunc(handleMethod),
-		}
-		logrus.Infof("HTTP服务运行在 %s 端口.", port)
-		server.ListenAndServe()
-	} else {
-		server := &http.Server{
-			Addr:    ":" + port,
-			Handler: http.HandlerFunc(handleMethod),
-			TLSConfig: &tls.Config{
-				MinVersion: tls.VersionTLS12, // 可选：设置支持的最低 TLS 版本
-			},
-		}
-		logrus.Infof("HTTPS服务运行在 %s 端口.", port)
-		server.ListenAndServeTLS(*config.SSL.Cert, *config.SSL.Key)
-	}
+	logrus.Infof("HTTP服务运行在 %s 端口.", port)
+	server.ListenAndServe()
 }
