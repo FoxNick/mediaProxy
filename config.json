@@ -1,7 +1,7 @@
 {
 	"workPool": true,
-	"debug": true, 
-	"port": "10079", 
-	"dns": "1.1.1.1:53",
+	"debug": false, 
+	"port": "7788", 
+	"dns": "223.5.5.5",
 	"ssl":{"cert": "cert文件位置", "key": "key文件位置"}
 }
