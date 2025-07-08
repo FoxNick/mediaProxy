@@ -2,13 +2,13 @@ package main
 
 import (
 	// 标准库
-	//"crypto/tls"
+	"crypto/tls"
 	"bufio"
 	"bytes"
 	"embed"
 	"encoding/base64"
 	"encoding/json"
-	//"flag"
+	"flag"
 	"fmt"
 	"io"
 	"math"
@@ -41,6 +41,19 @@ var indexHTML embed.FS
 var workPool = false
 var proxyTimeout = int64(10)
 var mediaCache = cache.New(4*time.Hour, 10*time.Minute)
+
+type SSLConfig struct {
+    Cert *string `json:"cert"`
+    Key  *string `json:"key"`
+}
+
+type Config struct {
+	WorkPool *bool           `json:"workPool"`
+	Debug    *bool           `json:"debug"`
+	Port     json.RawMessage `json:"port"`
+	SSL      *SSLConfig      `json:"ssl"`
+	DNS      *string         `json:"dns"`
+}
 
 type Chunk struct {
 	startOffset int64
@@ -857,22 +870,68 @@ func shouldFilterHeaderName(key string) bool {
 	return key == "range" || key == "host" || key == "http-client-ip" || key == "remote-addr" || key == "accept-encoding"
 }
 
+func checkFileExists(path string) error {
+    _, err := os.Stat(path)
+    if os.IsNotExist(err) {
+        return fmt.Errorf("文件不存在: %s", path)
+    }
+    return err
+}
+
 func main() {
-	// 定义 dns 和 debug 命令行参数
-	//dns := flag.String("dns", "1.1.1.1:53", "DNS解析 IP:port")
-	//port := flag.String("port", "10078", "服务器端口")
-	//debug := flag.Bool("debug", false, "Debug模式")
-	//work := flag.Bool("workpool", true, "线程池模式")
-	//flag.Parse()
+	configPath := flag.String("config", "config.json", "文件路径和名称")
+	// 打开文件
+	var config Config
+	file, err := os.Open(*configPath)
+	if err != nil {
+		logrus.Errorf("无法打开配置文件: %s", err)
+	} else {
+		bytes, err := io.ReadAll(file)
+		// 读取文件内容
+		if err != nil {
+			logrus.Errorf("无法读取配置文件: %s", err)	
+		} else {
+			// 解析 JSON 文件内容
+			if err := json.Unmarshal(bytes, &config); err != nil {
+				logrus.Errorf("无法解析配置文件: %s", err)
+			}
+		}
+	}
+	defer file.Close()
 	
 	// 设置日志级别
-	logrus.SetLevel(logrus.InfoLevel)
+	if config.Debug != nil && *config.Debug {
+		logrus.SetLevel(logrus.DebugLevel)
+		logrus.Info("已开启 Debug 模式")
+	} else {
+		logrus.SetLevel(logrus.InfoLevel)
+	}
 	// 设置工作池选项
-	workPool = true
-	
+	if config.WorkPool != nil {
+		workPool = *config.WorkPool
+	} else {
+		workPool = true // 默认值
+	}
+	// 设置端口
+	port := "7777"
+	if config.Port != nil {
+		var portValue string
+		if err := json.Unmarshal(config.Port, &portValue); err == nil {
+			port = portValue // 字符串格式的端口
+		} else {
+			var portInt int
+			if err := json.Unmarshal(config.Port, &portInt); err == nil {
+				port = fmt.Sprintf("%d", portInt) // 整数格式的端口
+			} else {
+				logrus.Errorf("警告: 无法解析端口值，将使用默认端口: %s", port)
+			}
+		}
+	}
 	// 设置DNS
 	dnsResolver := "223.5.5.5"
-	port := "10078"
+	if config.DNS != nil {
+		dnsResolver = *config.DNS
+	}
 
 	// 忽略 SIGPIPE 信号
 	signal.Ignore(syscall.SIGPIPE)
@@ -884,10 +943,35 @@ func main() {
 	base.DnsResolverIP = dnsResolver
 	base.InitClient()
 
-	server := http.Server{
-		Addr:    ":" + port,
-		Handler: http.HandlerFunc(handleMethod),
+	// 设置http(s)服务器
+	var HTTPService = true
+	if config.SSL == nil || config.SSL.Key == nil || config.SSL.Cert == nil {
+		logrus.Error("SSL证书不完整，启动HTTP服务")
+	} else {
+		keyErr := checkFileExists(*config.SSL.Key)
+		certErr := checkFileExists(*config.SSL.Cert)
+		if certErr != nil || keyErr != nil {
+			logrus.Error("SSL证书不完整，启动HTTP服务")
+		} else {
+			HTTPService = false
+		}
 	}
-	logrus.Infof("HTTP服务运行在 %s 端口.", port)
-	server.ListenAndServe()
+	if HTTPService {
+		server := http.Server{
+			Addr:    ":" + port,
+			Handler: http.HandlerFunc(handleMethod),
+		}
+		logrus.Infof("HTTP服务运行在 %s 端口.", port)
+		server.ListenAndServe()
+	} else {
+		server := &http.Server{
+			Addr:    ":" + port,
+			Handler: http.HandlerFunc(handleMethod),
+			TLSConfig: &tls.Config{
+				MinVersion: tls.VersionTLS12, // 可选：设置支持的最低 TLS 版本
+			},
+		}
+		logrus.Infof("HTTPS服务运行在 %s 端口.", port)
+		server.ListenAndServeTLS(*config.SSL.Cert, *config.SSL.Key)
+	}
 }
