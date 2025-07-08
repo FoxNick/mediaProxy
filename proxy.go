@@ -2,7 +2,7 @@ package main
 
 import (
 	// 标准库
-	"crypto/tls"
+	//"crypto/tls"
 	"bufio"
 	"bytes"
 	"embed"
@@ -38,16 +38,10 @@ import (
 //go:embed static/index.html
 var indexHTML embed.FS
 
-var workPool = false
+var workPool = true
 var proxyTimeout = int64(10)
 var mediaCache = cache.New(4*time.Hour, 10*time.Minute)
 
-type Config struct {
-	WorkPool *bool           `json:"workPool"`
-	Debug    *bool           `json:"debug"`
-	Port     json.RawMessage `json:"port"`
-	DNS      *string         `json:"dns"`
-}
 
 type Chunk struct {
 	startOffset int64
@@ -873,78 +867,35 @@ func checkFileExists(path string) error {
 }
 
 func main() {
-	configs := flag.String("config", "{}", "JSON配置字串")
-	// 打开文件
-	var config Config
-
-	// 解析 JSON 文件内容
-	if err := json.Unmarshal([]byte(*configs), &config); err != nil {
-		logrus.Errorf("无法解析配置: %s", err)
-	}
-
-	// 设置日志级别
-	if config.Debug != nil && *config.Debug {
-		logrus.SetLevel(logrus.DebugLevel)
-		logrus.Info("已开启 Debug 模式")
-	} else {
-		logrus.SetLevel(logrus.InfoLevel)
-	}
-	// 设置工作池选项
-	if config.WorkPool != nil {
-		workPool = *config.WorkPool
-	} else {
-		workPool = false // 默认值
-	}
-	// 设置端口
-	port := "7788"
-	if config.Port != nil {
-		var portValue string
-		if err := json.Unmarshal(config.Port, &portValue); err == nil {
-			port = portValue // 字符串格式的端口
-		} else {
-			var portInt int
-			if err := json.Unmarshal(config.Port, &portInt); err == nil {
-				port = fmt.Sprintf("%d", portInt) // 整数格式的端口
-			} else {
-				logrus.Errorf("警告: 无法解析端口值，将使用默认端口: %s", port)
-			}
-		}
-	}
-	// 设置DNS
-	dnsResolver := "1.1.1.1:53"
-	if config.DNS != nil {
-		dnsResolver = *config.DNS
-	}
+	// 定义 dns 和 debug 命令行参数
+	dns := flag.String("dns", "1.1.1.1:53", "DNS解析 IP:port")
+	port := flag.String("port", "10078", "服务器端口")
+	debug := flag.Bool("debug", false, "Debug模式")
+	flag.Parse()
 
 	// 忽略 SIGPIPE 信号
 	signal.Ignore(syscall.SIGPIPE)
 
 	// 设置日志输出和级别
 	logrus.SetOutput(os.Stdout)
+	if *debug {
+		logrus.SetLevel(logrus.DebugLevel)
+		logrus.Info("已开启Debug模式")
+	} else {
+		logrus.SetLevel(logrus.InfoLevel)
+	}
+	logrus.Infof("服务器运行在 %s 端口.", *port)
+
+	// 开启Debug
+	//logrus.SetLevel(logrus.DebugLevel)
 
 	// 设置 DNS 解析器 IP
-	base.DnsResolverIP = dnsResolver
+	base.DnsResolverIP = *dns
 	base.InitClient()
-
-	// 设置http(s)服务器
-	var HTTPService = true
-
-	if HTTPService {
-		server := http.Server{
-			Addr:    ":" + port,
-			Handler: http.HandlerFunc(handleMethod),
-		}
-		logrus.Infof("HTTP服务运行在 %s 端口.", port)
-		server.ListenAndServe()
-	} else {
-		server := &http.Server{
-			Addr:    ":" + port,
-			Handler: http.HandlerFunc(handleMethod),
-			TLSConfig: &tls.Config{
-				MinVersion: tls.VersionTLS12, // 可选：设置支持的最低 TLS 版本
-			},
-		}
-		logrus.Infof("HTTPS服务运行在 %s 端口.", port)
-		server.ListenAndServeTLS("", "")
+	var server = http.Server{
+		Addr:    ":" + *port,
+		Handler: http.HandlerFunc(handleMethod),
 	}
+	// server.SetKeepAlivesEnabled(false)
+	server.ListenAndServe()
 }
