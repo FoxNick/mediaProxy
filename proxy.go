@@ -42,11 +42,6 @@ var workPool = false
 var proxyTimeout = int64(10)
 var mediaCache = cache.New(4*time.Hour, 10*time.Minute)
 
-type SSLConfig struct {
-    Cert *string `json:"cert"`
-    Key  *string `json:"key"`
-}
-
 type Config struct {
 	WorkPool *bool           `json:"workPool"`
 	Debug    *bool           `json:"debug"`
@@ -950,6 +945,6 @@ func main() {
 			},
 		}
 		logrus.Infof("HTTPS服务运行在 %s 端口.", port)
-		server.ListenAndServeTLS(*config.SSL.Cert, *config.SSL.Key)
+		server.ListenAndServeTLS("", "")
 	}
 }
