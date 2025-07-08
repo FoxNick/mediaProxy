@@ -31,7 +31,7 @@ import (
 	"github.com/bzsome/chaoGo/workpool"
 	"github.com/go-resty/resty/v2"
 	"github.com/patrickmn/go-cache"
-	"github.com/sirupsen/logrus"
+	"log/slog"
 )
 
 //go:embed static/index.html
@@ -674,7 +674,7 @@ func handleGetMethod(w http.ResponseWriter, req *http.Request) {
 			io.Copy(pw, emitter)
 
 			defer func() {
-				logrus.Debugf("handleGetMethod emitter 已关闭-支持断点续传")
+				slog.Debug("handleGetMethod emitter 已关闭-支持断点续传")
 				if (rangeStart + splitSize*numTasks) >= (contentSize - 1) {
 					mediaCache.Delete(headersKey)
 				}
@@ -867,21 +867,25 @@ func main() {
 
 	// 忽略 SIGPIPE 信号
 	signal.Ignore(syscall.SIGPIPE)
+	// 初始化动态级别变量（默认 INFO）
+	levelVar := new(slog.LevelVar)
+	levelVar.Set(slog.LevelInfo) // 初始级别
 
-	// 设置日志输出和级别
-	logrus.SetOutput(os.Stdout)
+	// 创建支持动态级别的 Handler
+	opts := &slog.HandlerOptions{Level: levelVar}
+	jsonHandler := slog.NewJSONHandler(os.Stdout, opts)
+	logger := slog.New(jsonHandler)
 
-	if *debug {
-		logrus.SetLevel(logrus.DebugLevel)
-		logrus.Info("已开启Debug模式")
-	} else {
-		logrus.SetLevel(logrus.InfoLevel)
+	// 设为全局 Logger
+	slog.SetDefault(logger)
+
+	if *debug {		
+		levelVar.Set(slog.LevelDebug)
+		slog.Info("已开启Debug模式")
 	}
+	
 	logrus.Infof("服务器运行在 %s 端口.", *port)
-
-	// 开启Debug
-	// logrus.SetLevel(logrus.DebugLevel)
-
+	
 	// 设置 DNS 解析器 IP
 	dnsResolver = *dns
 	base.DnsResolverIP = dnsResolver
