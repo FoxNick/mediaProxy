@@ -2,6 +2,7 @@ package main
 
 import (
 	// 标准库
+	"crypto/tls"
 	"bufio"
 	"bytes"
 	"embed"
@@ -27,7 +28,8 @@ import (
 	// 本地包
 	"MediaProxy/base"
 
-	// 第三方库	
+	// 第三方库
+	"github.com/bzsome/chaoGo/workpool"
 	"github.com/go-resty/resty/v2"
 	"github.com/patrickmn/go-cache"
 	"github.com/sirupsen/logrus"
@@ -36,8 +38,22 @@ import (
 //go:embed static/index.html
 var indexHTML embed.FS
 
+var workPool = false
 var proxyTimeout = int64(10)
 var mediaCache = cache.New(4*time.Hour, 10*time.Minute)
+
+type SSLConfig struct {
+    Cert *string `json:"cert"`
+    Key  *string `json:"key"`
+}
+
+type Config struct {
+	WorkPool *bool           `json:"workPool"`
+	Debug    *bool           `json:"debug"`
+	Port     json.RawMessage `json:"port"`
+	SSL      *SSLConfig      `json:"ssl"`
+	DNS      *string         `json:"dns"`
+}
 
 type Chunk struct {
 	startOffset int64
@@ -106,8 +122,31 @@ func ConcurrentDownload(p *ProxyDownloadStruct, downloadUrl string, rangeStart i
 
 	logrus.Debugf("正在处理: %+v, rangeStart: %+v, rangeEnd: %+v, contentLength :%+v, splitSize: %+v, numSplits: %+v, numTasks: %+v", downloadUrl, rangeStart, rangeEnd, totalLength, splitSize, numSplits, numTasks)
 
-	for numSplit := 0; numSplit < int(numSplits); numSplit++ {
-		go p.ProxyWorker(req)
+	if workPool {
+		var wp *workpool.WorkPool
+		workPoolKey := downloadUrl + "#Workpool"
+		if x, found := mediaCache.Get(workPoolKey); found {
+			wp = x.(*workpool.WorkPool)
+			if ! workPool {
+				wp = workpool.New(int(numTasks))
+				wp.SetTimeout(time.Duration(proxyTimeout) * time.Second)
+				mediaCache.Set(workPoolKey, wp, 14400*time.Second)
+			}
+		} else {
+			wp = workpool.New(int(numTasks))
+			wp.SetTimeout(time.Duration(proxyTimeout) * time.Second)
+			mediaCache.Set(workPoolKey, wp, 14400*time.Second)
+		}
+		for numSplit := 0; numSplit < int(numSplits); numSplit++ {
+			wp.Do(func() error {
+				p.ProxyWorker(req)
+				return nil
+			})
+		}
+	} else {
+		for numSplit := 0; numSplit < int(numSplits); numSplit++ {
+			go p.ProxyWorker(req)
+		}
 	}
 
 	defer func() {
@@ -831,36 +870,49 @@ func shouldFilterHeaderName(key string) bool {
 	return key == "range" || key == "host" || key == "http-client-ip" || key == "remote-addr" || key == "accept-encoding"
 }
 
+func checkFileExists(path string) error {
+    _, err := os.Stat(path)
+    if os.IsNotExist(err) {
+        return fmt.Errorf("文件不存在: %s", path)
+    }
+    return err
+}
+
 func main() {
 	// 定义 dns 和 debug 命令行参数
-	dns := flag.String("dns", "223.5.5.5", "DNS解析 IP:port")
-	port := flag.String("port", "7788", "服务器端口")
+	dns := flag.String("dns", "1.1.1.1:53", "DNS解析 IP:port")
+	port := flag.String("port", "10078", "服务器端口")
 	debug := flag.Bool("debug", false, "Debug模式")
+	work := flag.Bool("workpool", true, "线程池模式")
 	flag.Parse()
 	
+	// 设置日志级别
+	if *Debug {
+		logrus.SetLevel(logrus.DebugLevel)
+		logrus.Info("已开启 Debug 模式")
+	} else {
+		logrus.SetLevel(logrus.InfoLevel)
+	}
+	// 设置工作池选项
+	workPool = *work
+	
+	// 设置DNS
+	dnsResolver := *dns
+
 	// 忽略 SIGPIPE 信号
 	signal.Ignore(syscall.SIGPIPE)
 
 	// 设置日志输出和级别
 	logrus.SetOutput(os.Stdout)
-	if *debug {
-		logrus.SetLevel(logrus.DebugLevel)
-		logrus.Info("已开启Debug模式")
-	} else {
-		logrus.SetLevel(logrus.InfoLevel)
-	}
-	logrus.Infof("服务器运行在 %s 端口.", *port)
-
-	// 开启Debug
-	//logrus.SetLevel(logrus.DebugLevel)
 
 	// 设置 DNS 解析器 IP
-	base.DnsResolverIP = *dns
+	base.DnsResolverIP = dnsResolver
 	base.InitClient()
-	var server = http.Server{
+
+	server := http.Server{
 		Addr:    ":" + *port,
 		Handler: http.HandlerFunc(handleMethod),
 	}
-	// server.SetKeepAlivesEnabled(false)
+	logrus.Infof("HTTP服务运行在 %s 端口.", *port)
 	server.ListenAndServe()
 }
