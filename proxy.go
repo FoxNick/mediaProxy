@@ -926,13 +926,10 @@ func main() {
 	base.DnsResolverIP = dnsResolver
 	base.InitClient()
 
-	var HTTPService = true
-	if HTTPService {
-		server := http.Server{
-			Addr:    ":" + port,
-			Handler: http.HandlerFunc(handleMethod),
-		}
-		logrus.Infof("HTTP服务运行在 %s 端口.", port)
-		server.ListenAndServe()
+	server := &http.Server{
+		Addr:    ":" + port,
+		Handler: http.HandlerFunc(handleMethod),
 	}
+	logrus.Infof("HTTP服务运行在 %s 端口.", port)
+	server.ListenAndServe()
 }
