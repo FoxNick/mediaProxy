@@ -8,7 +8,7 @@ import (
 	"embed"
 	"encoding/base64"
 	"encoding/json"
-	"flag"
+	//"flag"
 	"fmt"
 	"io"
 	"math"
