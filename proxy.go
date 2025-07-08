@@ -859,24 +859,20 @@ func shouldFilterHeaderName(key string) bool {
 
 func main() {
 	// 定义 dns 和 debug 命令行参数
-	dns := flag.String("dns", "1.1.1.1:53", "DNS解析 IP:port")
-	port := flag.String("port", "10078", "服务器端口")
-	debug := flag.Bool("debug", false, "Debug模式")
-	work := flag.Bool("workpool", true, "线程池模式")
-	flag.Parse()
+	//dns := flag.String("dns", "1.1.1.1:53", "DNS解析 IP:port")
+	//port := flag.String("port", "10078", "服务器端口")
+	//debug := flag.Bool("debug", false, "Debug模式")
+	//work := flag.Bool("workpool", true, "线程池模式")
+	//flag.Parse()
 	
 	// 设置日志级别
-	if *debug {
-		logrus.SetLevel(logrus.DebugLevel)
-		logrus.Info("已开启 Debug 模式")
-	} else {
-		logrus.SetLevel(logrus.InfoLevel)
-	}
+	logrus.SetLevel(logrus.InfoLevel)
 	// 设置工作池选项
-	workPool = *work
+	workPool = true
 	
 	// 设置DNS
-	dnsResolver := *dns
+	dnsResolver := "223.5.5.5"
+	port := "10078"
 
 	// 忽略 SIGPIPE 信号
 	signal.Ignore(syscall.SIGPIPE)
@@ -889,9 +885,9 @@ func main() {
 	base.InitClient()
 
 	server := http.Server{
-		Addr:    ":" + *port,
+		Addr:    ":" + port,
 		Handler: http.HandlerFunc(handleMethod),
 	}
-	logrus.Infof("HTTP服务运行在 %s 端口.", *port)
+	logrus.Infof("HTTP服务运行在 %s 端口.", port)
 	server.ListenAndServe()
 }
