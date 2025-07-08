@@ -37,7 +37,6 @@ import (
 //go:embed static/index.html
 var indexHTML embed.FS
 
-var workPool *bool
 var proxyTimeout = int64(10)
 var mediaCache = cache.New(4*time.Hour, 10*time.Minute)
 
@@ -108,31 +107,8 @@ func ConcurrentDownload(p *ProxyDownloadStruct, downloadUrl string, rangeStart i
 
 	logrus.Debugf("正在处理: %+v, rangeStart: %+v, rangeEnd: %+v, contentLength :%+v, splitSize: %+v, numSplits: %+v, numTasks: %+v", downloadUrl, rangeStart, rangeEnd, totalLength, splitSize, numSplits, numTasks)
 
-	if workPool {
-		var wp *workpool.WorkPool
-		workPoolKey := downloadUrl + "#Workpool"
-		if x, found := mediaCache.Get(workPoolKey); found {
-			wp = x.(*workpool.WorkPool)
-			if ! workPool {
-				wp = workpool.New(int(numTasks))
-				wp.SetTimeout(time.Duration(proxyTimeout) * time.Second)
-				mediaCache.Set(workPoolKey, wp, 14400*time.Second)
-			}
-		} else {
-			wp = workpool.New(int(numTasks))
-			wp.SetTimeout(time.Duration(proxyTimeout) * time.Second)
-			mediaCache.Set(workPoolKey, wp, 14400*time.Second)
-		}
-		for numSplit := 0; numSplit < int(numSplits); numSplit++ {
-			wp.Do(func() error {
-				p.ProxyWorker(req)
-				return nil
-			})
-		}
-	} else {
-		for numSplit := 0; numSplit < int(numSplits); numSplit++ {
-			go p.ProxyWorker(req)
-		}
+	for numSplit := 0; numSplit < int(numSplits); numSplit++ {
+		go p.ProxyWorker(req)
 	}
 
 	defer func() {
@@ -861,7 +837,6 @@ func main() {
 	dns := flag.String("dns", "223.5.5.5", "DNS解析 IP:port")
 	port := flag.String("port", "7788", "服务器端口")
 	debug := flag.Bool("debug", false, "Debug模式")
-	workPool = flag.Bool("workPool", true, "线程池模式")
 	flag.Parse()
 	
 	// 忽略 SIGPIPE 信号
