@@ -928,7 +928,7 @@ func main() {
 		}
 	}
 	// 设置DNS
-	dnsResolver := "223.5.5.5"
+	dnsResolver := "223.5.5.5:53"
 	if config.DNS != nil {
 		dnsResolver = *config.DNS
 	}
