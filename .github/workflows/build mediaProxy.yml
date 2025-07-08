@@ -72,7 +72,7 @@ jobs:
             
             echo "▶ Building $OUTPUT"
             CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH \
-              go build -ldflags="-s -w -X main.Version=${{ github.sha }}" \
+              go build -ldflags="–trimpath -s -w -X main.Version=${{ github.sha }}" \
               -tags netgo -installsuffix netgo -o "$OUTPUT"
             
             echo "⚡ Compressing $OUTPUT with UPX"
