@@ -879,25 +879,14 @@ func checkFileExists(path string) error {
 }
 
 func main() {
-	configPath := flag.String("config", "config.json", "文件路径和名称")
+	configs := flag.String("config", "{}", "JSON字串")
 	// 打开文件
 	var config Config
-	file, err := os.Open(*configPath)
-	if err != nil {
-		logrus.Errorf("无法打开配置文件: %s", err)
-	} else {
-		bytes, err := io.ReadAll(file)
-		// 读取文件内容
-		if err != nil {
-			logrus.Errorf("无法读取配置文件: %s", err)	
-		} else {
-			// 解析 JSON 文件内容
-			if err := json.Unmarshal(bytes, &config); err != nil {
-				logrus.Errorf("无法解析配置文件: %s", err)
-			}
-		}
+	
+	// 解析 JSON 文件内容
+	if err := json.Unmarshal([]byte(*configs), &config); err != nil {
+		logrus.Errorf("无法解析配置: %s", err)
 	}
-	defer file.Close()
 	
 	// 设置日志级别
 	if config.Debug != nil && *config.Debug {
