@@ -42,19 +42,6 @@ var workPool = false
 var proxyTimeout = int64(10)
 var mediaCache = cache.New(4*time.Hour, 10*time.Minute)
 
-type SSLConfig struct {
-    Cert *string `json:"cert"`
-    Key  *string `json:"key"`
-}
-
-type Config struct {
-	WorkPool *bool           `json:"workPool"`
-	Debug    *bool           `json:"debug"`
-	Port     json.RawMessage `json:"port"`
-	SSL      *SSLConfig      `json:"ssl"`
-	DNS      *string         `json:"dns"`
-}
-
 type Chunk struct {
 	startOffset int64
 	endOffset   int64
@@ -870,14 +857,6 @@ func shouldFilterHeaderName(key string) bool {
 	return key == "range" || key == "host" || key == "http-client-ip" || key == "remote-addr" || key == "accept-encoding"
 }
 
-func checkFileExists(path string) error {
-    _, err := os.Stat(path)
-    if os.IsNotExist(err) {
-        return fmt.Errorf("文件不存在: %s", path)
-    }
-    return err
-}
-
 func main() {
 	// 定义 dns 和 debug 命令行参数
 	dns := flag.String("dns", "1.1.1.1:53", "DNS解析 IP:port")
@@ -887,7 +866,7 @@ func main() {
 	flag.Parse()
 	
 	// 设置日志级别
-	if *Debug {
+	if *debug {
 		logrus.SetLevel(logrus.DebugLevel)
 		logrus.Info("已开启 Debug 模式")
 	} else {
