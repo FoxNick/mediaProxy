@@ -72,8 +72,8 @@ jobs:
             
             echo "▶ Building $OUTPUT"
             CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH \
-              go build -ldflags="-X main.Version=${{ github.sha }}" \
-              -tags netgo -installsuffix netgo -o "$OUTPUT"
+              go build -ldflags="-s -w -X main.Version=${{ github.sha }}" \
+              -trimpath -tags netgo -installsuffix netgo -o "$OUTPUT"
             
             echo "⚡ Compressing $OUTPUT with UPX"
             upx --best --lzma "$OUTPUT" -o "${OUTPUT%.*}-compressed${EXTENSION}"  # 保留原文件[3](@ref)
