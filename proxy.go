@@ -2,7 +2,7 @@ package main
 
 import (
 	// 标准库
-	//"crypto/tls"
+	"crypto/tls"
 	"bufio"
 	"bytes"
 	"embed"
@@ -41,6 +41,11 @@ var indexHTML embed.FS
 var workPool = false
 var proxyTimeout = int64(10)
 var mediaCache = cache.New(4*time.Hour, 10*time.Minute)
+
+type SSLConfig struct {
+    Cert *string `json:"cert"`
+    Key  *string `json:"key"`
+}
 
 type Config struct {
 	WorkPool *bool           `json:"workPool"`
@@ -873,15 +878,15 @@ func checkFileExists(path string) error {
 }
 
 func main() {
-	configs := flag.String("config", "{}", "JSON字串")
+	configs := flag.String("config", "{}", "JSON配置字串")
 	// 打开文件
 	var config Config
-	
+
 	// 解析 JSON 文件内容
 	if err := json.Unmarshal([]byte(*configs), &config); err != nil {
 		logrus.Errorf("无法解析配置: %s", err)
 	}
-	
+
 	// 设置日志级别
 	if config.Debug != nil && *config.Debug {
 		logrus.SetLevel(logrus.DebugLevel)
@@ -893,10 +898,10 @@ func main() {
 	if config.WorkPool != nil {
 		workPool = *config.WorkPool
 	} else {
-		workPool = true // 默认值
+		workPool = false // 默认值
 	}
 	// 设置端口
-	port := "7777"
+	port := "7788"
 	if config.Port != nil {
 		var portValue string
 		if err := json.Unmarshal(config.Port, &portValue); err == nil {
@@ -911,7 +916,7 @@ func main() {
 		}
 	}
 	// 设置DNS
-	dnsResolver := "223.5.5.5:53"
+	dnsResolver := "1.1.1.1:53"
 	if config.DNS != nil {
 		dnsResolver = *config.DNS
 	}
@@ -926,10 +931,25 @@ func main() {
 	base.DnsResolverIP = dnsResolver
 	base.InitClient()
 
-	server := &http.Server{
-		Addr:    ":" + port,
-		Handler: http.HandlerFunc(handleMethod),
+	// 设置http(s)服务器
+	var HTTPService = true
+
+	if HTTPService {
+		server := http.Server{
+			Addr:    ":" + port,
+			Handler: http.HandlerFunc(handleMethod),
+		}
+		logrus.Infof("HTTP服务运行在 %s 端口.", port)
+		server.ListenAndServe()
+	} else {
+		server := &http.Server{
+			Addr:    ":" + port,
+			Handler: http.HandlerFunc(handleMethod),
+			TLSConfig: &tls.Config{
+				MinVersion: tls.VersionTLS12, // 可选：设置支持的最低 TLS 版本
+			},
+		}
+		logrus.Infof("HTTPS服务运行在 %s 端口.", port)
+		server.ListenAndServeTLS(*config.SSL.Cert, *config.SSL.Key)
 	}
-	logrus.Infof("HTTP服务运行在 %s 端口.", port)
-	server.ListenAndServe()
 }
