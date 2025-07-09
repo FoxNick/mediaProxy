@@ -18,7 +18,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest]
-        go-version: [ '1.23' ]
+        go-version: [ '1.21' ]
     name: Build
     runs-on: ${{ matrix.platform }}
     steps:
@@ -42,14 +42,6 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
           echo "PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_NDK_HOME:$PATH" >> $GITHUB_ENV
-
-      # 安装 gomobile 工具
-      - name: Install gomobile
-        run: |
-          go install golang.org/x/mobile/cmd/gomobile@latest
-          gomobile init  # 初始化 gomobile 环境[1,2](@ref)
-          go get golang.org/x/mobile/bind
-          
 
       - name: Install UPX
         run: |
@@ -112,7 +104,14 @@ jobs:
           done
 
           echo "FILESNAME=$PWD" >> $GITHUB_ENV
-  
+      
+      # 安装 gomobile 工具
+      - name: Install gomobile
+        run: |
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          gomobile init  # 初始化 gomobile 环境[1,2](@ref)
+          go get golang.org/x/mobile/bind
+            
       # 新增的 gomobile 编译步骤
       - name: Build Android APK with gomobile
         run: |
