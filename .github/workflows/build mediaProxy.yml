@@ -62,7 +62,6 @@ jobs:
           # 定义目标平台数组
           platforms=(
             "linux/386" "linux/amd64" "linux/arm" "linux/arm64"
-            "darwin/amd64" "darwin/arm64"
             "windows/386:.exe" "windows/amd64:.exe"
             "android/arm64" "android/arm"
           )
@@ -80,12 +79,9 @@ jobs:
               GOARCH=${GOARCH%:*}
             fi
             
-            # 针对 android 设置 CGO CC
             if [["$GOOS" == "android"]]; then              
               CGO_ENABLED=1;
-              # declare -A goarch2cc=( ["arm64"]="aarch64-linux-android32-clang" ["arm"]="armv7a-linux-androideabi32-clang" ["amd64"]="x86_64-linux-android32-clang" ["386"]="i686-linux-android32-clang"); 
               export CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android32-clang";
-              # 针对 android/arm 设置 GOARM=7
               if [["$GOARCH" == "arm"]]; then
                 export GOARM=7;
                 export CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-android32-clang";
@@ -116,13 +112,13 @@ jobs:
       - name: Build Android APK with gomobile
         run: |
           # 构建 Android APK
-          gomobile bind -trimpath -ldflags "-s -w" -v -target=android/arm,android/arm64 -androidapi 21 -o main.apk
+          #gomobile bind -trimpath -ldflags "-s -w" -v -target=android/arm,android/arm64 -androidapi 21 -o main.apk
           
           # 构建 Android 库 (AAR)
-          gomobile bind -trimpath -ldflags "-s -w" -v -target=android/arm,android/arm64 -androidapi 21 -o main.aar
+          #gomobile bind -trimpath -ldflags "-s -w" -v -target=android/arm,android/arm64 -androidapi 21 -o main.aar
           
           echo "✅ gomobile 构建完成"
-          ls -lh mediaProxy.*
+          #ls -lh mediaProxy.*
 
       - name: Bump Version and Push Tag
         id: bump
