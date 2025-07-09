@@ -89,12 +89,12 @@ jobs:
             fi
             
             # 针对 android 设置 CGO CC
-            if [[ "$GOOS" == "android"]]; then
+            if ["$GOOS" == "android"]; then
               # 针对 android/arm 设置 GOARM=7
-              if [[ "$GOARCH" == "arm" ]]; then
-                export GOARM=7
+              if ["$GOARCH" == "arm"]; then
+                export GOARM=7;
               fi
-              CGO_ENABLED=1
+              CGO_ENABLED=1;
               declare -A goarch2cc=( ["arm64"]="aarch64-linux-android32-clang" ["arm"]="armv7a-linux-androideabi32-clang" ["amd64"]="x86_64-linux-android32-clang" ["386"]="i686-linux-android32-clang"); 
               export CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/${goarch2cc[$GOARCH]}";
             fi 
