@@ -87,12 +87,18 @@ jobs:
               EXTENSION=${GOARCH#*:}
               GOARCH=${GOARCH%:*}
             fi
-
+            # 特殊处理android/arm
+            if [ "$GOOS" == "android" ] && [ "$GOARCH" == "arm" ]; then
+              ARM_FLAGS="-marm"  # 添加-marm参数[7](@ref)
+            else
+              ARM_FLAGS=""
+            fi
+            
             OUTPUT="mediaProxy-${GOOS}-${GOARCH}${EXTENSION}"
             
             echo "▶ Building $OUTPUT"
             CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH \
-              go build -trimpath -ldflags="-s -w -X main.Version=${{ github.sha }}" \
+              go build -trimpath $ARM_FLAGS -ldflags="-s -w -X main.Version=${{ github.sha }}" \
               -tags netgo -installsuffix netgo -o "$OUTPUT"
             
             echo "⚡ Compressing $OUTPUT with UPX"
