@@ -66,21 +66,22 @@ jobs:
               GOARCH=${GOARCH%:*}
             fi
             
-            if [[ "$GOOS" == "android" && "$GOARCH" == "arm64" ]]; then
+            # 针对 android 设置 CGO CC
+            if [[ "$GOOS" == "android" ]]; then
+              # 针对 android/arm 设置 GOARM=7
+              if [[ "$GOARCH" == "arm" ]]; then
+                export GOARM=7
+              fi
               CGO_ENABLED=1
-              CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android32-clang"
-            fi
-            
-            if [[ "$GOOS" == "android" && "$GOARCH" == "arm" ]]; then
-              CGO_ENABLED=1
-              GOARM=7
-              CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-android32-clang"
+              declare -A goarch2cc=( ["arm64"]="aarch64-linux-android32-clang" ["arm"]="armv7a-linux-androideabi32-clang" ["amd64"]="x86_64-linux-android32-clang" ["386"]="i686-linux-android32-clang")
+              export CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/${goarch2cc[$GOARCH]}"
             fi
             
             OUTPUT="mediaProxy-${GOOS}-${GOARCH}${EXTENSION}"
             
             echo "▶ 编译 $OUTPUT"
-            go build -trimpath -ldflags="-s -w -X main.Version=${{ github.sha }}" \
+            CGO_ENABLED=$CGO_ENABLED GOOS=$GOOS GOARCH=$GOARCH \
+              go build -trimpath -ldflags="-s -w -X main.Version=${{ github.sha }}" \
               -tags netgo -installsuffix netgo -o "$OUTPUT"
             
             echo "⚡ 压缩 $OUTPUT"
