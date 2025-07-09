@@ -50,7 +50,7 @@ jobs:
           platforms=(
             "linux/386" "linux/amd64" "linux/arm" "linux/arm64"
             "windows/386:.exe" "windows/amd64:.exe"
-            "android/arm64" "android/arm"
+            "android/arm64" "android/arm" "android/386" "android/amd64"
           )
 
           # 遍历所有平台进行编译和压缩
