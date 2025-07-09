@@ -880,6 +880,7 @@ func checkFileExists(path string) error {
 
 func main() {
 	configPath := flag.String("config", "config.json", "文件路径和名称")
+	flag.Parse()
 	// 打开文件
 	var config Config
 	file, err := os.Open(*configPath)
