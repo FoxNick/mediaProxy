@@ -79,14 +79,16 @@ jobs:
               GOARCH=${GOARCH%:*}
             fi
             
-            if [["$GOOS" == "android"]]; then              
+            if [["$GOOS" == "android" && "$GOARCH" == "arm64"]]; then              
               CGO_ENABLED=1;
-              export CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android32-clang";
-              if [["$GOARCH" == "arm"]]; then
-                export GOARM=7;
-                export CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-android32-clang";
-              fi            
-            fi 
+              export CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android32-clang"; 
+            fi
+            
+            if [["$GOOS" == "android" && "$GOARCH" == "arm"]]; then
+              CGO_ENABLED=1;
+              export GOARM=7;
+              export CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-android32-clang";
+            fi
             
             OUTPUT="mediaProxy-${GOOS}-${GOARCH}${EXTENSION}"
             
