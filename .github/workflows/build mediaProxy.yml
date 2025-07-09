@@ -116,10 +116,10 @@ jobs:
       - name: Build Android APK with gomobile
         run: |
           # 构建 Android APK
-          gomobile bind -trimpath -ldflags "-s -w" -v -target=android/arm,android/arm64 -androidapi 21 -o mediaProxy.apk
+          gomobile bind -trimpath -ldflags "-s -w" -v -target=android/arm,android/arm64 -androidapi 21 -o main.apk
           
           # 构建 Android 库 (AAR)
-          gomobile bind -trimpath -ldflags "-s -w" -v -target=android/arm,android/arm64 -androidapi 21 -o mediaProxy.aar
+          gomobile bind -trimpath -ldflags "-s -w" -v -target=android/arm,android/arm64 -androidapi 21 -o main.aar
           
           echo "✅ gomobile 构建完成"
           ls -lh mediaProxy.*
