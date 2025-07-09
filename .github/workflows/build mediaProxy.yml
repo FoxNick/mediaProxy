@@ -30,19 +30,6 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
 
-      # 安装 Android SDK/NDK (gomobile 必需)
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
-        with:
-          ndk-version: r25c  # 推荐使用稳定版本[7](@ref)
-
-      # 配置 Android 环境变量
-      - name: Set Android environment variables
-        run: |
-          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
-          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
-          echo "PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_NDK_HOME:$PATH" >> $GITHUB_ENV
-
       - name: Install UPX
         run: |
           sudo apt-get update
@@ -79,22 +66,21 @@ jobs:
               GOARCH=${GOARCH%:*}
             fi
             
-            if [["$GOOS" == "android" && "$GOARCH" == "arm64"]]; then              
-              CGO_ENABLED=1;
-              export CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android32-clang"; 
+            if [[ "$GOOS" == "android" && "$GOARCH" == "arm64" ]]; then
+              CGO_ENABLED=1
+              CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android32-clang"
             fi
             
-            if [["$GOOS" == "android" && "$GOARCH" == "arm"]]; then
-              CGO_ENABLED=1;
-              export GOARM=7;
-              export CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-android32-clang";
+            if [[ "$GOOS" == "android" && "$GOARCH" == "arm" ]]; then
+              CGO_ENABLED=1
+              GOARM=7
+              CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-android32-clang"
             fi
             
             OUTPUT="mediaProxy-${GOOS}-${GOARCH}${EXTENSION}"
             
             echo "▶ 编译 $OUTPUT"
-            CGO_ENABLED=$CGO_ENABLED GOOS=$GOOS GOARCH=$GOARCH \
-              go build -trimpath -ldflags="-s -w -X main.Version=${{ github.sha }}" \
+            go build -trimpath -ldflags="-s -w -X main.Version=${{ github.sha }}" \
               -tags netgo -installsuffix netgo -o "$OUTPUT"
             
             echo "⚡ 压缩 $OUTPUT"
