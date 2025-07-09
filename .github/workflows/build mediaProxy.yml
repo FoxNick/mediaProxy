@@ -18,7 +18,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest]
-        go-version: [ '1.21' ]
+        go-version: [ '1.23' ]
     name: Build
     runs-on: ${{ matrix.platform }}
     steps:
@@ -34,7 +34,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
         with:
-          ndk-version: "25.2.9519653"  # 推荐使用稳定版本[7](@ref)
+          ndk-version: "27.2.12479018"  # 推荐使用稳定版本[7](@ref)
 
       # 配置 Android 环境变量
       - name: Set Android environment variables
@@ -73,7 +73,7 @@ jobs:
             "darwin/amd64" "darwin/arm64"
             "windows/386:.exe" "windows/amd64:.exe"
             "freebsd/386" "freebsd/amd64"
-            "android/arm64" "android/arm7"
+            "android/arm64" "android/arm"
           )
 
           # 遍历所有平台进行编译和压缩
@@ -87,6 +87,11 @@ jobs:
               EXTENSION=${GOARCH#*:}
               GOARCH=${GOARCH%:*}
             fi
+            
+             # 针对 android/arm 设置 GOARM=7
+            if [[ "$GOOS" == "android" && "$GOARCH" == "arm" ]]; then
+              export GOARM=7
+            fi 
             
             OUTPUT="mediaProxy-${GOOS}-${GOARCH}${EXTENSION}"
             
