@@ -45,6 +45,7 @@ jobs:
           
       - name: Build Go with UPX Compression
         run: |
+          go get github.com/miekg/dns
           set +e
           # 定义目标平台数组
           platforms=(
