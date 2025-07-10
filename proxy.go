@@ -903,7 +903,7 @@ func main() {
 	var config Config
 	err := loadConfig(&config)
 	if err != nil {
-		logrus.Fatal(err)
+		logrus.Fatalf("配置文件加载失败: %v", err)
 	}
 	
 	// 设置日志级别
