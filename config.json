@@ -2,6 +2,6 @@
 	"workPool": true,
 	"debug": true, 
 	"port": "7779", 
-	"dns": "223.5.5.5:53",
+	"dns": "",
 	"ssl":{"cert": "", "key": ""}
 }
