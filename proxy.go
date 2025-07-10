@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"net/http"
 	"net/http/cookiejar"
 	handleUrl "net/url"
@@ -24,6 +25,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"sort"
 
 	// 本地包
 	"MediaProxy/base"
@@ -33,6 +35,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/patrickmn/go-cache"
 	"github.com/sirupsen/logrus"
+	"github.com/miekg/dns"
 )
 
 //go:embed static/index.html
@@ -879,6 +882,59 @@ func checkFileExists(path string) error {
     return err
 }
 
+type DNSServer struct {
+	Address string
+	Latency time.Duration
+}
+
+// 测试 DNS 服务器响应速度
+func measureDNS(server string, domain string) (time.Duration, error) {
+	client := new(dns.Client)
+	msg := new(dns.Msg)
+	msg.SetQuestion(dns.Fqdn(domain), dns.TypeA)
+
+	start := time.Now()
+	_, _, err := client.Exchange(msg, net.JoinHostPort(server, "53"))
+	if err != nil {
+		return 0, err
+	}
+	return time.Since(start), nil
+}
+
+// 选择最快 DNS 服务器
+func FindFastestDNS(servers []string, domain string) string {
+	results := make(chan DNSServer, len(servers))
+	var wg sync.WaitGroup
+
+	for _, srv := range servers {
+		wg.Add(1)
+		go func(server string) {
+			defer wg.Done()
+			latency, err := measureDNS(server, domain)
+			if err == nil {
+				results <- DNSServer{server, latency}
+			}
+		}(srv)
+	}
+
+	wg.Wait()
+	close(results)
+
+	var serverList []DNSServer
+	for res := range results {
+		serverList = append(serverList, res)
+	}
+
+	sort.Slice(serverList, func(i, j int) bool {
+		return serverList[i].Latency < serverList[j].Latency
+	})
+
+	if len(serverList) > 0 {
+		return serverList[0].Address
+	}
+	return ""
+}
+
 func loadConfig(cfg *Config) error {
     // 优先级：命令行参数 > 环境变量
     path := flag.String("config", os.Getenv("CONFIG_PATH"), "外部配置文件路径")
@@ -939,7 +995,9 @@ func main() {
 	if config.DNS != nil {
 		dnsResolver = *config.DNS
 	}
-
+        fastest := FindFastestDNS([]string{"119.29.29.29", "180.76.76.76", "223.5.5.5", "114.114.114.114"}, "baidu.com")
+        logrus.Infof("最快DNS: %s", fastest)
+	
 	// 忽略 SIGPIPE 信号
 	signal.Ignore(syscall.SIGPIPE)
 
