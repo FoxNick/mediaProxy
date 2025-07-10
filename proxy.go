@@ -883,7 +883,6 @@ func loadConfig(cfg *Config) error {
     // 优先级：命令行参数 > 环境变量
     path := flag.String("config", os.Getenv("CONFIG_PATH"), "外部配置文件路径")
     flag.Parse()
-
     // 存在外部配置时优先加载
     if *path != "" {
         data, err := os.ReadFile(*path)
@@ -892,7 +891,6 @@ func loadConfig(cfg *Config) error {
         }
         return json.Unmarshal(data, cfg)
     }
-
     // 使用嵌入的默认配置（通过FS读取）
     data, err := embedRes.ReadFile("config.json")
     if err != nil {
@@ -902,10 +900,6 @@ func loadConfig(cfg *Config) error {
 }
 
 func main() {
-	//configPath := flag.String("config", "config.json", "文件路径和名称")
-	//flag.Parse()
-
-	// 打开文件
 	var config Config
 	err := loadConfig(&config)
 	if err != nil {
