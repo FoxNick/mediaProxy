@@ -878,23 +878,6 @@ func checkFileExists(path string) error {
     }
     return err
 }
-package main
-
-import (
-    "embed"
-    "encoding/json"
-    "flag"
-    "log"
-    "os"
-)
-
-//go:embed default.json  // 嵌入单个文件
-var configFS embed.FS     // 声明为文件系统类型
-
-type Config struct {
-    Port int    `json:"port"`
-    Env  string `json:"env"`
-}
 
 func loadConfig(cfg *Config) error {
     // 优先级：命令行参数 > 环境变量
