@@ -914,7 +914,7 @@ func main() {
 		workPool = false // 默认值
 	}
 	// 设置端口
-	port := "7788"
+	port := "7779"
 	if config.Port != nil {
 		var portValue string
 		if err := json.Unmarshal(config.Port, &portValue); err == nil {
@@ -929,7 +929,7 @@ func main() {
 		}
 	}
 	// 设置DNS
-	dnsResolver := "223.5.5.5:53"
+	dnsResolver := "119.29.29.29:53"
 	if config.DNS != nil {
 		dnsResolver = *config.DNS
 	}
