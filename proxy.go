@@ -991,13 +991,12 @@ func main() {
 		}
 	}
 	// 设置DNS
-	dnsResolver := "119.29.29.29:53"
-	if config.DNS != nil {
-		dnsResolver = *config.DNS
+	dnsResolver := *config.DNS
+	if dnsResolver == "" {
+		dnsResolver = FindFastestDNS([]string{"119.29.29.29", "180.76.76.76", "223.5.5.5", "114.114.114.114", "1.1.1.1", "101.226.4.6", "1.2.4.8", "210.2.4.8", "123.125.81.6"}, "baidu.com")
+		logrus.Infof("自动选择最快DNS: %s", dnsResolver)
 	}
-        fastest := FindFastestDNS([]string{"119.29.29.29", "180.76.76.76", "223.5.5.5", "114.114.114.114"}, "baidu.com")
-        logrus.Infof("最快DNS: %s", fastest)
-	
+
 	// 忽略 SIGPIPE 信号
 	signal.Ignore(syscall.SIGPIPE)
 
