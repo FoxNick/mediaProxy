@@ -36,7 +36,8 @@ import (
 )
 
 //go:embed static/index.html
-var indexHTML embed.FS
+//go:embed config.json
+var embedRes embed.FS
 
 var workPool = false
 var proxyTimeout = int64(10)
@@ -359,7 +360,7 @@ func handleMethod(w http.ResponseWriter, req *http.Request) {
 		// 检查查询参数是否为空
 		if req.URL.RawQuery == "" {
 			// 获取嵌入的 index.html 文件
-			index, err := indexHTML.Open("static/index.html")
+			index, err := embedRes.Open("static/index.html")
 			if err != nil {
 				http.Error(w, fmt.Sprintf("读取index.html错误: %v", err), http.StatusInternalServerError)
 				return
@@ -877,28 +878,56 @@ func checkFileExists(path string) error {
     }
     return err
 }
+package main
+
+import (
+    "embed"
+    "encoding/json"
+    "flag"
+    "log"
+    "os"
+)
+
+//go:embed default.json  // 嵌入单个文件
+var configFS embed.FS     // 声明为文件系统类型
+
+type Config struct {
+    Port int    `json:"port"`
+    Env  string `json:"env"`
+}
+
+func loadConfig(cfg *Config) error {
+    // 优先级：命令行参数 > 环境变量
+    path := flag.String("config", os.Getenv("CONFIG_PATH")， "外部配置文件路径")
+    flag.Parse()
+
+    // 存在外部配置时优先加载
+    if *path != "" {
+        data, err := os.ReadFile(*path)
+        if err != nil {
+            return err
+        }
+        return json.Unmarshal(data, cfg)
+    }
+
+    // 使用嵌入的默认配置（通过FS读取）
+    data, err := embedRes.ReadFile("config.json")
+    if err != nil {
+        return err
+    }
+    return json.Unmarshal(data, cfg)
+}
 
 func main() {
-	configPath := flag.String("config", "config.json", "文件路径和名称")
-	flag.Parse()
+	//configPath := flag.String("config", "config.json", "文件路径和名称")
+	//flag.Parse()
+
 	// 打开文件
 	var config Config
-	file, err := os.Open(*configPath)
+	err := loadConfig(&config)
 	if err != nil {
-		logrus.Errorf("无法打开配置文件: %s", err)
-	} else {
-		bytes, err := io.ReadAll(file)
-		// 读取文件内容
-		if err != nil {
-			logrus.Errorf("无法读取配置文件: %s", err)	
-		} else {
-			// 解析 JSON 文件内容
-			if err := json.Unmarshal(bytes, &config); err != nil {
-				logrus.Errorf("无法解析配置文件: %s", err)
-			}
-		}
+		logrus.Fatal(err)
 	}
-	defer file.Close()
 	
 	// 设置日志级别
 	if config.Debug != nil && *config.Debug {
