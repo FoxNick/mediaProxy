@@ -1004,7 +1004,7 @@ func main() {
 	logrus.SetOutput(os.Stdout)
 
 	// 设置 DNS 解析器 IP
-	base.DnsResolverIP = dnsResolver
+	base.DnsResolverIP = dnsResolver + ":53"
 	base.InitClient()
 
 	// 设置http(s)服务器
