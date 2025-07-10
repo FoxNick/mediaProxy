@@ -881,7 +881,7 @@ func checkFileExists(path string) error {
 
 func loadConfig(cfg *Config) error {
     // 优先级：命令行参数 > 环境变量
-    path := flag.String("config", os.Getenv("CONFIG_PATH")， "外部配置文件路径")
+    path := flag.String("config", os.Getenv("CONFIG_PATH"), "外部配置文件路径")
     flag.Parse()
 
     // 存在外部配置时优先加载
