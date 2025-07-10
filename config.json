@@ -3,5 +3,5 @@
 	"debug": true, 
 	"port": "7779", 
 	"dns": "223.5.5.5:53",
-	"ssl":{"cert": "/storage/emulated/0/tvbox/lib/go_mediaProxy.crt", "key": "/storage/emulated/0/tvbox/lib/go_mediaProxy.key"}
+	"ssl":{"cert": "", "key": ""}
 }
